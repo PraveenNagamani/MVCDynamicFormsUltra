@@ -1,0 +1,6 @@
+services:
+  mvcdynamicformsultra:
+    image: ${DOCKER_REGISTRY-}mvcdynamicformsultra
+    build:
+      context: MVCDynamicFormsUltra
+      dockerfile: Dockerfile

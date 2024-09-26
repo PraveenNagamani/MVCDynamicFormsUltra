@@ -1,0 +1,238 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+
+
+@{
+    ViewData["Title"] = "Nforms";
+}
+
+@model List<Nform>;
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+<link href="~/lib/bootstrap/dist/css/bootstrap.css" rel="stylesheet" />
+@* 
+<link href="https://cdn.datatables.net/1.10.15/css/dataTables.bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.datatables.net/responsive/2.1.1/css/responsive.bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.datatables.net/v/dt/dt-1.13.4/datatables.min.css" rel="stylesheet" />
+
+<script src="https://cdn.datatables.net/v/dt/dt-1.13.4/datatables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.15/js/dataTables.bootstrap4.min.js "></script>
+ *@
+
+
+@*@Html.Partial("Status" )*@
+
+<form>
+
+
+    <div class="container-fluid" id="Div_Nform">
+        <table class="table table-striped table-bordered dt-responsive nowrap" id="grd_Nform">
+            @for (int i = 0; i < Model.Count; i = i + 3)
+            {
+                <tr class="row">
+                    @for (int j = 0; j < 3; j++)
+                    {
+                        @if (i + j < Model.Count)
+                        {
+                            var control = Model[i + j];
+
+                            <td class="col-2">
+                                <label id="lbl1">@control.DISPLAYTEXT</label>
+                            </td>
+                            <td class="col-2">
+                                @if (control.OBJECTTYPE == "TextBox")
+                                {
+                                   
+                                    @if (control.CASCADEID == null)
+                                    {
+                                        <input type="text" name="@control.COLUMNNAME" value="@control.SQLTEXT" class="form-control" @control.DisableControl />
+                                    }
+                                    else
+                                    {
+                                        <input type="text" name="@control.COLUMNNAME" value="@control.SQLTEXT" class="form-control" onchange="autoPostBack(this)" @control.DisableControl />
+                                    }
+                                    
+                                }
+                                else if (control.OBJECTTYPE == "Label")
+                                {
+                                    <input type="text" name="@control.COLUMNNAME" class="form-control" disabled />
+                                }
+                                else if (control.OBJECTTYPE == "DropDown")
+                                {
+                                    @if(control.CASCADEID == null){
+                                        <select name="@control.COLUMNNAME" class="form-control" @control.DisableControl>
+                                            <option value="">--Select--</option>
+                                            @if (control.SQLTEXT != null)
+                                            {
+                                                @foreach (string vals in control.SQLTEXT.Split(","))
+                                                {
+                                                    string text = "", val = "", selectedval = "";
+                                                    var parts = vals.Split(':');
+
+                                                    if (parts.Length > 0) {text = parts[0].Trim();}    
+                                                    if (parts.Length > 1) {val = parts[1].Trim();}
+                                                    if (parts.Length > 2) {selectedval = parts[2].Trim();}
+                                                    bool isSelected = selectedval == "1" ? true : false;
+
+                                                    if (isSelected) {<option value="@val" selected>@text</option>}
+                                                    else{ <option value="@val" >@text</option> }
+                                                    
+                                                }
+                                            }
+
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <select name="@control.COLUMNNAME" class="form-control" onchange="autoPostBack(this)" @control.DisableControl >
+                                            <option value="">--Select--</option>
+                                            @if (control.SQLTEXT != null)
+                                            {
+                                                @foreach (string vals in control.SQLTEXT.Split(","))
+                                                {
+                                                    string text = "", val = "", selectedval = "";
+                                                    var parts = vals.Split(':');
+
+                                                    if (parts.Length > 0) { text = parts[0].Trim(); }
+                                                    if (parts.Length > 1) { val = parts[1].Trim(); }
+                                                    if (parts.Length > 2) { selectedval = parts[2].Trim(); }
+                                                    bool isSelected = selectedval == "1" ? true : false;
+
+                                                    if (isSelected)
+                                                    {
+                                                        <option value="@val" selected>@text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@val">@text</option>
+                                                    }
+
+                                                }
+                                            }
+
+                                        </select>
+                                    }
+                                    
+                                }
+                                else if (control.OBJECTTYPE == "CheckBox")
+                                {
+                                    <input type="checkbox" name="@control.COLUMNNAME" value="@control.SQLTEXT" />
+                                }
+                            </td>
+                        }
+                    }
+                </tr>
+            }
+
+
+
+        </table>
+
+
+        <input type="button" value="Save" class="btn btn-primary" />
+    </div>
+
+
+
+</form>
+ <script>
+
+    function autoPostBack(control) {
+
+        var formdata = $(control).closest('form').serialize();
+        formdata += '&controlid=' + $(control).attr('name');
+        console.log(formdata);
+
+        $.ajax({
+            url: '@Url.Action("CascadeDataEntry", "Home")',
+            type: 'POST',
+            data: formdata,
+            success: function (response) {
+                // Handle the response from the server
+                $('#Div_Nform').html(response),
+                console.log("Postback successful:", response);
+            },
+            error: function (xhr, status, error) {
+                console.error("Error during postback:", status, error);
+            }
+        });
+    }
+
+
+//            $(document).ready(function () {
+//             debugger;
+//             console.log('ready function');
+//             $.noConflict();
+//             LoadNform();
+
+//         });
+
+//         function CallCascade(sender,evalue){
+//             alert('change function' + sender + evalue)
+//             $.post("/Home/CascadeDataEntry");
+//         }
+
+//         function DeleteData(CustomerID) {
+//     if (confirm("Are you sure you want to delete ...?")) {
+//         Delete(CustomerID);
+//     } else {
+//         return false;
+//     }
+// }
+
+
+// function Delete(CustomerID) {
+//     var url = '@Url.Content("~/")' + "DemoGrid/Delete";
+
+//     $.post(url, { ID: CustomerID }, function(data) {
+//         if (data) {
+//                 oTable = $('#grd_Nform').DataTable();
+//                 oTable.draw();
+//         } else {
+//             alert("Something Went Wrong!");
+//         }
+//     });
+// }
+
+// function LoadNform(){
+//     var CustData = [];
+
+//         debugger;
+//         var my_columns = [];
+
+//         $.each(CustData[0], function (key, value) {
+//             var my_item = {};
+//             my_item.data = key;
+//             my_item.title = key;
+//             my_columns.push(my_item);
+//         });
+
+
+
+
+//         var oTable =  $("#grd_Nform").DataTable({
+
+//             "processing": true, // for show progress bar
+//             "serverSide": true, // for process server side
+//             "filter": true, // this is for disable filter (search box)
+//             "orderMulti": false, // for disable multiple column at once
+
+//             data: CustData,
+
+
+//             "oLanguage": {
+//                 "sEmptyTable": "My Custom Message On Empty Table",
+//                 "sZeroRecords" : "NO Records",
+//                 "sInfoEmpty": "Showing 0 to 0 of 0 records."
+//             }
+
+
+//         });
+
+//     }
+
+    </script> 
+
+

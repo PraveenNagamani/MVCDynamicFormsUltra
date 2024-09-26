@@ -1,0 +1,11 @@
+https://www.c-sharpcorner.com/article/using-jquery-datatables-grid-with-asp-net-core-mvc/#:~:text=As%20you%20know%2C%20there%20are,use%20the%20jQuery%20DataTables%20Grid.
+
+https://datatables.net/forums/discussion/46476/requested-unknown-parameter-0-for-row-0-column-0
+
+
+https://datatables.net/manual/data/#Data-source-types
+
+http://jsfiddle.net/2wujw71x/1
+
+
+
