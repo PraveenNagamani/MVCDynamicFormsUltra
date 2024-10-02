@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +11,8 @@ using Newtonsoft.Json;
 using StackExchange.Redis;
 using System.Data;
 using System.Diagnostics;
+using System.Net;
+using System.Security.Claims;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace MVCDynamicFormsUltra.Controllers
@@ -20,12 +24,12 @@ namespace MVCDynamicFormsUltra.Controllers
         private readonly string Orclconnstring = "";
         private readonly IConnectionMultiplexer _Redis ;
         private readonly ILogger _logger;
-        DBConnect dmvc = null;
+        DBConnect dmvc ;
         private readonly EFClasses _EFClass;
         private readonly LaunchAPI API;
         
         string ErrMsg = "";
-        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI, IConnectionMultiplexer Redis)
+        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI, IConnectionMultiplexer Redis, DBConnect db)
         {
             configuration = config;
             Mongoconnstring = configuration["ConnectionStrings:MongoConnection"];
@@ -33,8 +37,9 @@ namespace MVCDynamicFormsUltra.Controllers
             _Redis = Redis;
             _logger = logger;
             this._EFClass = _EFClass;
-            dmvc =  new DBConnect(_logger);
+            dmvc =  db;
             API = launchAPI;
+            
         }
 
         public IActionResult Index()
@@ -55,17 +60,57 @@ namespace MVCDynamicFormsUltra.Controllers
             return View();
         }
 
+        [HttpGet]
         public IActionResult Twitty()
         {
             List<string> tlist = new List<string>();
-            tlist.Add("Modi"); tlist.Add("Dhoni"); tlist.Add("US Election"); tlist.Add("Work Life Balance"); tlist.Add("HYDRAA"); tlist.Add("Himanchal Floods");
+            string userName = HttpContext.Session.GetString("UserName");
+            if (userName == null)
+            {
+                return RedirectToAction("Error", new { ErrMsg = "OOPS !! Session Expired" });
+
+            }
+            else
+            {
+                if (userName == "praveen") { userName = "userid1"; }
+
+            }
+
+            tlist.Add("Modi"); tlist.Add("Dhoni"); tlist.Add("US Election"); tlist.Add("Work Life Balance"); tlist.Add("HYDRAA"); tlist.Add("Himanchal Floods"); tlist.Add("SRK");
             ViewBag.Trends = tlist;
 
-            string[,] Filterparams = new string[1, 3];
-            Filterparams[0, 0] = "model"; Filterparams[0, 1] = "Eq"; Filterparams[0, 2] = "Sprinter";
-
             var db = _Redis.GetDatabase();
-            string result = db.StringGet("sample_bicycle:1004");
+            string query = $"user:{userName}:messages_sorted";
+            RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
+           
+            List<Tweet> tweets = new List<Tweet>();
+            foreach (var msg in messages)
+            {
+                 HashEntry[] he =  db.HashGetAll($"message:{msg}");
+                var d = he.ToDictionary(
+                    entry => (string?) entry.Name,
+                    entry => (string?) entry.Value
+                    );
+
+                 d.TryGetValue("Content", out string tContent);
+                d.TryGetValue("title", out string ttitle);
+                d.TryGetValue("user", out string tauthor);
+                
+
+                tweets.Add(new Tweet
+                {
+                    Content = tContent,
+                    Title = ttitle,
+                    author = tauthor
+                });
+                
+            }
+            return View(tweets);
+        }
+
+        [HttpPost]
+        public IActionResult Twitty(IFormCollection data)
+        {
 
             return View();
         }
@@ -98,7 +143,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
                 string value = HttpContext.Session.GetString("sess_nform");
 
-                NformController nc = new NformController(configuration, _logger, _EFClass);
+                NformController nc = new NformController(configuration, _logger, _EFClass,dmvc);
                 var model = nc.Cascade("CustDetails",value, ref ErrMsg, dictparams);
                 ViewBag.Nform = model; //TempData["Nform"] = model;
                 if (ErrMsg != "") { _logger.LogError(ErrMsg); return RedirectToAction("Error", new { ErrMsg = "InValid Model Data !!" + this.ErrMsg }); }
@@ -125,7 +170,7 @@ namespace MVCDynamicFormsUltra.Controllers
             }
             else
             {
-                NformController nc = new NformController(configuration, _logger, _EFClass);
+                NformController nc = new NformController(configuration, _logger, _EFClass,dmvc);
                 var model = nc.LoadControls("CustDetails", ref ErrMsg,userName);
                 
                 if (ModelState.IsValid) {
@@ -169,6 +214,8 @@ namespace MVCDynamicFormsUltra.Controllers
         [HttpPost]
         public IActionResult ProfileView(string buttonid, string username, string emailid)
         {
+            List<Profile> profilelist = new List<Profile>();
+
             if (buttonid == "btnsave")
             {
                 CreateProfile(username, emailid);
@@ -177,22 +224,88 @@ namespace MVCDynamicFormsUltra.Controllers
 
                     return RedirectToAction("Error");
                 }
+                
             }
-
-            List<Profile> profilelist = new List<Profile>();
-            profilelist = SearchProfile(username);
-
-            if (buttonid == "btnlogin" || buttonid == "btnsave")
+            else
             {
-                if (profilelist.Count > 0)
+                if (buttonid == "btnlogin" || buttonid == "btnsave")
                 {
-                    HttpContext.Session.SetString("UserName", username);
-                    return RedirectToAction("DataEntry");
+                    if (!GetProfileFromCookie(username))
+                    {
+                        profilelist = SearchProfile(username);
+                    
+                        if (profilelist.Count > 0)
+                        {
+                            HttpContext.Session.SetString("UserName", username);
+                            SetProfileCookie(username);
+                            //return RedirectToAction("DataEntry");
+                            return RedirectToAction("Twitty");
+                        }
+                        else
+                        {
+                            return RedirectToAction("Error",new { ErrMsg = "No User Found" });
+                        }
+                    }
+                    else
+                    {
+                        HttpContext.Session.SetString("UserName", username);
+                        //return RedirectToAction("DataEntry");
+                        return RedirectToAction("Twitty");
+                    }
                 }
             }
 
+            
             return View(profilelist);
 
+        }
+        public bool SetProfileCookie(string username)
+        {
+            CookieOptions cookieoptions = new CookieOptions
+            {
+                Expires = DateTime.Now.AddMonths(12)
+            };
+
+            HttpContext.Response.Cookies.Append("UserName", username, cookieoptions);
+
+            return GetProfileFromCookie(username);
+
+        }
+
+        internal bool GetProfileFromCookie(string username)
+        {
+
+            string user = HttpContext.Request.Cookies["UserName"];
+            if(string.IsNullOrEmpty(user)) { return false; }
+            if(user == username) {
+                
+
+                var claims = new List<Claim>
+                {
+                new Claim(ClaimTypes.Name, username),
+                new Claim(ClaimTypes.Role, "User")
+                };
+
+                // Create claims identity
+                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
+                // Create authentication properties (e.g., for persistence)
+                var authProperties = new AuthenticationProperties
+                {
+                    //IsPersistent = true, // Remember the user
+                    ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(30) // Set expiration
+                };
+
+                // Sign in the user (this sets User.Identity.IsAuthenticated = true)
+                 HttpContext.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(claimsIdentity),
+                    authProperties);
+
+
+                return true; 
+            }
+            return false;
         }
 
         public async Task<bool> CreateProfile(string username, string emailid)
@@ -218,7 +331,11 @@ namespace MVCDynamicFormsUltra.Controllers
                     d.Add("USERNAME", username); d.Add("EMAILID", emailid); 
                     string response = "";
                     response = await API.CallAPI("Customer",false, d, imageBytes);
-                    return response.Contains("Success") ? true : false;
+                    if (response != null) {
+                        if (response.Contains("Success")) { SetProfileCookie(username); return true; } else {  return false; }
+                        
+                    }
+                    return  false;
                 }
                 else
                 {
@@ -226,6 +343,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
                     _EFClass.Add(p);
                     _EFClass.SaveChanges();
+                    SetProfileCookie(username);
                     return true;
                 }
                 
@@ -275,6 +393,14 @@ namespace MVCDynamicFormsUltra.Controllers
         public IActionResult ProfileView()
         {
             return View();
+        }
+
+        public IActionResult LogOut()
+        {
+            //HttpContext.Session.Clear();
+            HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            return RedirectToAction("ProfileView");
         }
     }
 }

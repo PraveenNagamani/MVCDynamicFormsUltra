@@ -18,13 +18,15 @@ namespace MVCDynamicFormsUltra.Controllers
 
         private string ErrMsg = "";
 
-        private readonly ILogger logger; 
+        private readonly ILogger logger;
+        DBConnect dBConnect;
 
-        public NformController(IConfiguration config, ILogger logger,EFClasses eFClasses)
+        public NformController(IConfiguration config, ILogger logger,EFClasses eFClasses, DBConnect db)
         {
             this.eFClasses = eFClasses;
             Orclconnstring = config["ConnectionStrings:OrclConnection"];
             this.logger = logger;
+            dBConnect = db;
         }
 
         public NformController() { }
@@ -116,7 +118,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             string[,] sqlparams = null;
 
-            DBConnect dBConnect = new DBConnect(logger);
+            //DBConnect dBConnect = new DBConnect(logger);
 
             sqlparams = dBConnect.prepareparamsbyarg(ref ErrMsg,"#USERID#", userid);
             try
@@ -166,7 +168,7 @@ namespace MVCDynamicFormsUltra.Controllers
         {
             List<Nform> controls = null;
             string[,] sqlparams = null;
-            DBConnect dBConnect = new DBConnect(logger);
+            //DBConnect dBConnect = new DBConnect(logger);
             try
             {
                 sqlparams = dBConnect.prepareparmasbydictionary(ref ErrMsg, dictparams);
@@ -239,7 +241,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
         internal void preserveControlvalues( Nform ctrl, Dictionary<string,string> dictparams, out string sqltext)
         {
-            DBConnect dBConnect = new DBConnect(logger);
+            //DBConnect dBConnect = new DBConnect(logger);
             string ErrMsg = "";
             string[,] sqlparams = dBConnect.prepareparmasbydictionary(ref ErrMsg, dictparams);
 

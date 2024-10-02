@@ -1,39 +1,139 @@
-﻿@*
+﻿
+@*
     For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 *@
 
 @{
     List<string> trends = ViewBag.Trends as List<string>;
-   
+     
 }
+
+@model List<Tweet>;
 
 <style>
     .btn-oval{
         border-radius : 50%;
     }
 </style>
+<form method="post">
 
-<form class="d-flex" role="search">
-    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
-    <button class="btn btn-outline-success" type="submit">Search</button>
-</form>
-
-@if (trends != null)
-{
-    @for (int i = 0; i < 5; i++)
-    {
-        <button type="button" class="btn btn-outline-info p-2 m-2">@trends[i]</button>
-    }
-}
-
-
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Card title</h5>
-        @* <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> *@
-        <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
-        @* <a href="#" class="card-link">Card link</a> *@
-        
+<div class="table">
+    <div class="row">
+        <div class="col-5">
+            <div class="input-group" >
+                <input class="form-control" type="search" placeholder="Search.. Trends Profiles" aria-label="Search">
+                <button class="btn btn-outline-success" type="submit">Search</button>
+            </div>
+        </div>
+        <div class="col-7">
+                @if (trends != null)
+                {
+                    @for (int i = 0; i < 5; i++)
+                    {
+                        <button type="button" class="btn btn-outline-info p-2 m-2">@trends[i]</button>
+                    }
+                }
+        </div>
     </div>
 </div>
 
+
+
+<div id="div_twitty" class="container-fluid">
+@if (Model != null)
+{
+    if(Model.Count > 0)
+    {
+        for(int i=0; i< Model.Count; i++)
+        {
+                    <div class="card" id="divmsg_@i">
+                <div class="card-body">
+                    <h5 class="card-title">@Model[i].Title</h5>
+                    @* <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> *@
+                    <p class="card-text">@Model[i].Content</p>
+                    @* <a href="#" class="card-link">Card link</a> *@
+                    <button class="like-button" id="likeButton_@i">👍</button>
+                    <span id="likeCount_@i">0</span>
+                </div>
+            </div>
+        }
+        
+    }
+
+}
+else
+{
+    <div class="card" id="divmsg_0">
+        <div class="card-body">
+            <h5 class="card-title">Card title</h5>
+            @* <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> *@
+            <p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+            @* <a href="#" class="card-link">Card link</a> *@
+            <button class="like-button" id="likeButton_0">👍</button>
+            <span id="likeCount_0"></span>
+        </div>
+    </div>
+}
+
+</div>
+
+</form>
+
+<script>
+    $(document).ready(function () {
+        $('.like-button').on('click', function () {
+            
+            // Get the index from the button's ID
+            const buttonId = $(this).attr('id');
+            const index = buttonId.split('_')[1]; // Extract index from ID
+           
+            // Increment the count for the specific button clicked
+            const likeCountElement = $('#likeCount_' + index);
+            let likeCount = parseInt(likeCountElement.text());
+            likeCount=1;
+            
+            $('#likeCount_' + index).text(likeCount);
+
+            // Add the liked class for animation
+            $(this).addClass('liked');
+
+            // Remove the class after animation ends
+            setTimeout(() => {
+                $(this).removeClass('liked');
+            }, 500); // Match this duration with CSS animation duration
+
+            autopostback(index);
+
+        });
+
+   
+
+    });
+
+    function autopostback(index) {
+
+        var title = $('divmsg_' + index).find('.card-title').text();
+        var content = $('divmsg_' + index).find('.card-text').text();
+
+        var msgdata = {
+            Title: title,
+            Content: content,
+            LikeCount: $('#likeCount_' + index).text()
+        };
+        console.log(msgdata);
+
+        $.ajax({
+            url: '@Url.Action("TwittyPost", "Home")',
+            type: 'POST',
+            data: msgdata,
+            success: function (response) {
+                $('divmsg_' + index).html(response),
+                    console.log(response);
+            },
+            error: function (xhr, status, error) {
+                console.error("Error during postback:", status, error);
+            }
+        });
+    }
+
+</script>

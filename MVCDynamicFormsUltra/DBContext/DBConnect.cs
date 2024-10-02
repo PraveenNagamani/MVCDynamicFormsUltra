@@ -6,15 +6,18 @@ using MongoDB.Driver;
 using MongoDB.Driver.Core.Configuration;
 using MVCDynamicFormsUltra.Controllers;
 using Oracle.ManagedDataAccess.Client;
+using StackExchange.Redis;
 using System.Data;
 
 namespace MVCDynamicFormsUltra.DBContext
 {
     public class DBConnect
     {
-
-        public DBConnect(ILogger logger)
+        private readonly IConnectionMultiplexer _Redis;
+       
+        public DBConnect()
         {
+            
         }
 
 

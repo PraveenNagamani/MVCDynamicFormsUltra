@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using MVCDynamicFormsUltra;
 using MVCDynamicFormsUltra.Controllers;
@@ -5,6 +6,7 @@ using MVCDynamicFormsUltra.DBContext;
 using MVCDynamicFormsUltra.Maintainance;
 using Oracle.EntityFrameworkCore;
 using StackExchange.Redis;
+using System.Formats.Asn1;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +27,20 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
+builder.Services.ConfigureApplicationCookie(options => {
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        //options.LoginPath = "/Account/Login";  // Redirect to login page if not authenticated
+       // options.LogoutPath = "/Account/Logout"; // Logout path
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(5); // Cookie expiration time
+    });
+
 //Adding DbContext and using oracle
 builder.Services.AddDbContext<EFClasses>(OptionsBuilder => OptionsBuilder.UseOracle(builder.Configuration.GetConnectionString("OrclConnection")));
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("RedisConnection"), true)); });
@@ -35,6 +51,7 @@ var logFileDirectory = builder.Configuration["Logging:FileLogging:logFileDirecto
 if (!Directory.Exists(logFileDirectory)) Directory.CreateDirectory(logFileDirectory);
 builder.Logging.AddProvider(new FileLoggerProvider(logFileDirectory + "\\" + logFilePath));
 
+builder.Services.AddTransient<DBConnect>();
 
 var app = builder.Build();
 

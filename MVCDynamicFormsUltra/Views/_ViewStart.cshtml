@@ -1,3 +1,11 @@
 ﻿@{
-    Layout = "_Layout";
+    @if (User.Identity.IsAuthenticated)    
+    {
+        Layout = "_AuthLayout";
+    }
+    else
+    {
+        Layout = "_Layout";
+    }
+   
 }
