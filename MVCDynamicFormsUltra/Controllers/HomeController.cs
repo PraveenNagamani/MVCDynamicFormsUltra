@@ -111,8 +111,15 @@ namespace MVCDynamicFormsUltra.Controllers
         [HttpPost]
         public IActionResult Twitty(IFormCollection data)
         {
+            Dictionary<string, string> cascadeparams = new Dictionary<string, string>();
+            foreach (var key in data.Keys)
+            {
+                cascadeparams.Add("#" + key.ToUpper() + "#", data[key]);
+            }
 
-            return View();
+            string jsonparams = JsonConvert.SerializeObject(cascadeparams);
+
+            return PartialView();
         }
         public IActionResult Redis()
         {

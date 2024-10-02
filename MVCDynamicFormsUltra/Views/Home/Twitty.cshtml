@@ -15,7 +15,7 @@
         border-radius : 50%;
     }
 </style>
-<form method="post">
+<form method="post" id="form_twitty" onsubmit="return false;">
 
 <div class="table">
     <div class="row">
@@ -101,8 +101,10 @@ else
             setTimeout(() => {
                 $(this).removeClass('liked');
             }, 500); // Match this duration with CSS animation duration
-
+            
+            console.log(index);
             autopostback(index);
+           
 
         });
 
@@ -111,19 +113,24 @@ else
     });
 
     function autopostback(index) {
-
-        var title = $('divmsg_' + index).find('.card-title').text();
-        var content = $('divmsg_' + index).find('.card-text').text();
+        console.log('inside');
+        var title = $('#divmsg_' + index).find('.card-title').text();
+        var content = $('#divmsg_' + index).find('.card-text').text();
 
         var msgdata = {
             Title: title,
             Content: content,
             LikeCount: $('#likeCount_' + index).text()
         };
+        
         console.log(msgdata);
 
+        var formdata = $('#divmsg_' + index).closest('form').serialize();
+        console.log(formdata);
+        
+
         $.ajax({
-            url: '@Url.Action("TwittyPost", "Home")',
+            url: '@Url.Action("Twitty", "Home")',
             type: 'POST',
             data: msgdata,
             success: function (response) {
