@@ -17,7 +17,7 @@
 </style>
 <form method="post" id="form_twitty" onsubmit="return false;">
 
-<div class="table">
+<div class="grid">
     <div class="row">
         <div class="col-5">
             <div class="input-group" >
@@ -39,7 +39,7 @@
 
 
 
-<div id="div_twitty" class="container-fluid">
+<div id="div_twitty" class="grid">
 @if (Model != null)
 {
     if(Model.Count > 0)
@@ -102,8 +102,8 @@ else
                 $(this).removeClass('liked');
             }, 500); // Match this duration with CSS animation duration
             
-            console.log(index);
-            autopostback(index);
+           
+            autopostback(buttonId);
            
 
         });
@@ -112,21 +112,21 @@ else
 
     });
 
-    function autopostback(index) {
+    function autopostback(control) {
         console.log('inside');
+        const index = control.split('_')[1];
         var title = $('#divmsg_' + index).find('.card-title').text();
         var content = $('#divmsg_' + index).find('.card-text').text();
 
         var msgdata = {
             Title: title,
             Content: content,
-            LikeCount: $('#likeCount_' + index).text()
+            LikeCount: $('#likeCount_' + index).text(),
+            Control : control
         };
         
         console.log(msgdata);
 
-        var formdata = $('#divmsg_' + index).closest('form').serialize();
-        console.log(formdata);
         
 
         $.ajax({

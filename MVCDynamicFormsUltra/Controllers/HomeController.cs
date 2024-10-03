@@ -111,14 +111,11 @@ namespace MVCDynamicFormsUltra.Controllers
         [HttpPost]
         public IActionResult Twitty(IFormCollection data)
         {
-            Dictionary<string, string> cascadeparams = new Dictionary<string, string>();
-            foreach (var key in data.Keys)
+
+            if (data.Keys.Contains("Control"))
             {
-                cascadeparams.Add("#" + key.ToUpper() + "#", data[key]);
+                RedirectToAction("SetPostLikeCount", "RedisConnect");
             }
-
-            string jsonparams = JsonConvert.SerializeObject(cascadeparams);
-
             return PartialView();
         }
         public IActionResult Redis()
