@@ -117,7 +117,7 @@ namespace MVCDynamicFormsUltra.Controllers
             if (data.Keys.Contains("Control"))
             {
                  var db = _Redis.GetDatabase();
-                RedirectToAction("SetPostLikeCount", "RedisConnect");
+                RedirectToAction("SetPostLikeCount", "RedisConnect", new { userId = data["Author"] , messageId = data["MsgId"] , Currlikecount = data["LikeCount"]});
                 string likesKey = $"{data["MsgId"]}:likecount";
                 BigInteger likecount = db.HyperLogLogLength(likesKey);
             }

@@ -48,7 +48,7 @@
         {
                     <div class="card" id="divmsg_@i">
                 <div class="card-body">
-                    <h5 class="card-title">@Model[i].Title</h5> <small id="msgid_@i">@Model[i].TweetID</small>
+                    <h5 class="card-title">@Model[i].Title</h5> <small id="msgid_@i">@Model[i].TweetID</small> <small id="author_@i">@Model[i].author</small>
                     @* <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> *@
                     <p class="card-text">@Model[i].Content</p>
                     @* <a href="#" class="card-link">Card link</a> *@
@@ -117,9 +117,10 @@ else
         const index = control.split('_')[1];
         var title = $('#divmsg_' + index).find('.card-title').text();
         var content = $('#divmsg_' + index).find('.card-text').text();
-        var Id = $('#divmsg_' + index).find('#msgid_' +index).text();
+        
         var msgdata = {
-            MsgId = Id,
+            MsgId = $('#msgid_' +index).text(),
+            Author = '#author' +index).text(),
             Title: title,
             Content: content,
             LikeCount: $('#likeCount_' + index).text(),
