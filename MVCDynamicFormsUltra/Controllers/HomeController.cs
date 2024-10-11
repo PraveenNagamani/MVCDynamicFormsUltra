@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using System.Numerics;
 
 namespace MVCDynamicFormsUltra.Controllers
 {
@@ -91,7 +92,7 @@ namespace MVCDynamicFormsUltra.Controllers
                     entry => (string?) entry.Name,
                     entry => (string?) entry.Value
                     );
-
+                
                  d.TryGetValue("Content", out string tContent);
                 d.TryGetValue("title", out string ttitle);
                 d.TryGetValue("user", out string tauthor);
@@ -99,6 +100,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
                 tweets.Add(new Tweet
                 {
+                    TweetID = msg,
                     Content = tContent,
                     Title = ttitle,
                     author = tauthor
@@ -114,7 +116,10 @@ namespace MVCDynamicFormsUltra.Controllers
 
             if (data.Keys.Contains("Control"))
             {
+                 var db = _Redis.GetDatabase();
                 RedirectToAction("SetPostLikeCount", "RedisConnect");
+                string likesKey = $"{data["MsgId"]}:likecount";
+                BigInteger likecount = db.HyperLogLogLength(likesKey);
             }
             return PartialView();
         }
@@ -126,7 +131,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             string? returnstr = db.StringGet("RedisTest" + TRID);
             ViewBag.jsonstring = JsonConvert.SerializeObject(returnstr);
-
+            
             return View("Privacy");
         }
                 
