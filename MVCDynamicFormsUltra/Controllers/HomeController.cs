@@ -142,7 +142,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             Task.WaitAll(hashTasks.ToArray());
             //batch retieval completed
-            
+
             List<Tweet> tweets = new List<Tweet>();
 
             for (int i = 0; i < messages.Length; i++)
@@ -161,7 +161,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
                 tweets.Add(new Tweet
                 {
-                    TweetID = messageIds[i].ToString(),
+                    TweetID = messages[i].ToString(),
                     Content = tContent,
                     Title = tTitle,
                     author = tAuthor,
