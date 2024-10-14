@@ -1,4 +1,6 @@
-﻿namespace MVCDynamicFormsUltra.Models
+﻿using System.Numerics;
+
+namespace MVCDynamicFormsUltra.Models
 {
     public class Tweet
     {
@@ -9,8 +11,8 @@
 
         public IFormFile? attachments { get; set; }
 
-        public int LikeCount { get; set; }
-        public int retweetcount { get; set; }
+        public BigInteger LikeCount { get; set; }
+        public BigInteger retweetcount { get; set; }
     }
 
    

@@ -82,7 +82,7 @@ else
 <script>
     $(document).ready(function () {
         $('.like-button').on('click', function () {
-            
+            console.log('like button clicked');
             // Get the index from the button's ID
             const buttonId = $(this).attr('id');
             const index = buttonId.split('_')[1]; // Extract index from ID
@@ -119,20 +119,21 @@ else
         var content = $('#divmsg_' + index).find('.card-text').text();
         
         var msgdata = {
-            MsgId = $('#msgid_' +index).text(),
-            Author = '#author' +index).text(),
+            messageId : $('#msgid_' +index).text(),
+            Author : $('#author_' +index).text(),
             Title: title,
             Content: content,
-            LikeCount: $('#likeCount_' + index).text(),
+            Currlikecount: $('#likeCount_' + index).text(),
             Control : control
         };
         
-        console.log(msgdata);
+        //console.log(msgdata);
 
         
 
         $.ajax({
-            url: '@Url.Action("Twitty", "Home")',
+            @* url: '@Url.Action("Twitty", "Home")', *@
+            url: '@Url.Action("SetPostLikeCount", "RedisConnect")',
             type: 'POST',
             data: msgdata,
             success: function (response) {
@@ -141,6 +142,7 @@ else
             },
             error: function (xhr, status, error) {
                 console.error("Error during postback:", status, error);
+                console.error("Response:", xhr.responseText);
             }
         });
     }

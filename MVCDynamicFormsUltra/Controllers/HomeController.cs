@@ -23,12 +23,12 @@ namespace MVCDynamicFormsUltra.Controllers
         private readonly IConfiguration configuration;
         private readonly string Mongoconnstring = "";
         private readonly string Orclconnstring = "";
-        private readonly IConnectionMultiplexer _Redis ;
+        private readonly IConnectionMultiplexer _Redis;
         private readonly ILogger _logger;
-        DBConnect dmvc ;
+        DBConnect dmvc;
         private readonly EFClasses _EFClass;
         private readonly LaunchAPI API;
-        
+
         string ErrMsg = "";
         public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI, IConnectionMultiplexer Redis, DBConnect db)
         {
@@ -38,9 +38,9 @@ namespace MVCDynamicFormsUltra.Controllers
             _Redis = Redis;
             _logger = logger;
             this._EFClass = _EFClass;
-            dmvc =  db;
+            dmvc = db;
             API = launchAPI;
-            
+
         }
 
         public IActionResult Index()
@@ -61,51 +61,112 @@ namespace MVCDynamicFormsUltra.Controllers
             return View();
         }
 
+        // [HttpGet]
+        // public IActionResult Twitty()
+        // {
+        //     List<string> tlist = new List<string>();
+        //     string userName = HttpContext.Session.GetString("UserName");
+        //     if (userName == null)
+        //     {
+        //         return RedirectToAction("Error", new { ErrMsg = "OOPS !! Session Expired" });
+
+        //     }
+        //     else
+        //     {
+        //         if (userName == "praveen") { userName = "userid1"; }
+
+        //     }
+
+        //     tlist.Add("Modi"); tlist.Add("Dhoni"); tlist.Add("US Election"); tlist.Add("Work Life Balance"); tlist.Add("HYDRAA"); tlist.Add("Himanchal Floods"); tlist.Add("SRK");
+        //     ViewBag.Trends = tlist;
+
+        //     var db = _Redis.GetDatabase();
+        //     string query = $"user:{userName}:messages_sorted";
+        //     RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
+
+        //     List<Tweet> tweets = new List<Tweet>();
+        //     foreach (var msg in messages)
+        //     {
+        //          HashEntry[] he =  db.HashGetAll($"message:{msg}");
+        //         var d = he.ToDictionary(
+        //             entry => (string?) entry.Name,
+        //             entry => (string?) entry.Value
+        //             );
+
+        //          d.TryGetValue("Content", out string tContent);
+        //         d.TryGetValue("title", out string ttitle);
+        //         d.TryGetValue("user", out string tauthor);
+
+        //         string likeKey = $"message:{msg}:likecount";
+
+        //         tweets.Add(new Tweet
+        //         {
+        //             TweetID = msg == RedisValue.Null ? RedisValue.EmptyString : msg,
+        //             Content = tContent,
+        //             Title = ttitle,
+        //             author = tauthor,
+        //             LikeCount = db.HyperLogLogLength(likeKey)
+        //         });
+
+        //     }
+        //     return View(tweets);
+        // }
+
         [HttpGet]
         public IActionResult Twitty()
         {
-            List<string> tlist = new List<string>();
+
             string userName = HttpContext.Session.GetString("UserName");
-            if (userName == null)
+            if (string.IsNullOrEmpty(userName))
             {
                 return RedirectToAction("Error", new { ErrMsg = "OOPS !! Session Expired" });
 
             }
-            else
-            {
-                if (userName == "praveen") { userName = "userid1"; }
 
-            }
+            if (userName == "praveen") { userName = "userid1"; }
 
-            tlist.Add("Modi"); tlist.Add("Dhoni"); tlist.Add("US Election"); tlist.Add("Work Life Balance"); tlist.Add("HYDRAA"); tlist.Add("Himanchal Floods"); tlist.Add("SRK");
-            ViewBag.Trends = tlist;
+            ViewBag.Trends = new List<string>{
+                  "Modi", "Dhoni", "US Election", "Work Life Balance", "HYDRAA", "Himanchal Floods", "SRK"
+            };
 
             var db = _Redis.GetDatabase();
             string query = $"user:{userName}:messages_sorted";
             RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
-           
-            List<Tweet> tweets = new List<Tweet>();
+
+            //Batch Retrieval: We used HashGetAllAsync in a batch operation to reduce the latency caused by multiple round trips to Redis. This will significantly improve performance when fetching multiple messages.
+            List<Task<HashEntry[]>> hashTasks = new List<Task<HashEntry[]>>();
             foreach (var msg in messages)
             {
-                 HashEntry[] he =  db.HashGetAll($"message:{msg}");
-                var d = he.ToDictionary(
-                    entry => (string?) entry.Name,
-                    entry => (string?) entry.Value
-                    );
-                
-                 d.TryGetValue("Content", out string tContent);
-                d.TryGetValue("title", out string ttitle);
-                d.TryGetValue("user", out string tauthor);
+                hashTasks.Add(db.HashGetAllAsync($"message:{msg}"));
+            }
+
+            Task.WaitAll(hashTasks.ToArray());
+            //batch retieval completed
+            
+            List<Tweet> tweets = new List<Tweet>();
+
+            for (int i = 0; i < messages.Length; i++)
+            {
+                var messageData = hashTasks[i].Result.ToDictionary(
+                    entry => (string?)entry.Name,
+                    entry => (string?)entry.Value
+                );
+
+                messageData.TryGetValue("Content", out string? tContent);
+                messageData.TryGetValue("title", out string? tTitle);
+                messageData.TryGetValue("user", out string? tAuthor);
+
+                string likeKey = $"message:{messages[i]}:likecount";
                 
 
                 tweets.Add(new Tweet
                 {
-                    TweetID = msg,
+                    TweetID = messageIds[i].ToString(),
                     Content = tContent,
-                    Title = ttitle,
-                    author = tauthor
+                    Title = tTitle,
+                    author = tAuthor,
+                    LikeCount = db.HyperLogLogLength(likeKey) // Get like count
                 });
-                
             }
             return View(tweets);
         }
@@ -116,8 +177,10 @@ namespace MVCDynamicFormsUltra.Controllers
 
             if (data.Keys.Contains("Control"))
             {
-                 var db = _Redis.GetDatabase();
-                RedirectToAction("SetPostLikeCount", "RedisConnect", new { userId = data["Author"] , messageId = data["MsgId"] , Currlikecount = data["LikeCount"]});
+                var db = _Redis.GetDatabase();
+                //RedirectToAction("SetPostLikeCount", "RedisConnect", new { Author = data["Author"] , messageId = data["messageId"] , Currlikecount = data["Currlikecount"]});
+
+
                 string likesKey = $"{data["MsgId"]}:likecount";
                 BigInteger likecount = db.HyperLogLogLength(likesKey);
             }
@@ -131,29 +194,30 @@ namespace MVCDynamicFormsUltra.Controllers
 
             string? returnstr = db.StringGet("RedisTest" + TRID);
             ViewBag.jsonstring = JsonConvert.SerializeObject(returnstr);
-            
+
             return View("Privacy");
         }
-                
+
         public IActionResult DataEntry(string paramdata = "")
         {
 
-           
-            string userName =  HttpContext.Session.GetString("UserName");
-            if(userName == null) {
-                return RedirectToAction("Error",new { ErrMsg = "OOPS !! Session Expired"});
 
-            }            
+            string userName = HttpContext.Session.GetString("UserName");
+            if (userName == null)
+            {
+                return RedirectToAction("Error", new { ErrMsg = "OOPS !! Session Expired" });
+
+            }
             else if (paramdata != "")
             {
                 Dictionary<string, string> dictparams = new Dictionary<string, string>();
                 dictparams = JsonConvert.DeserializeObject<Dictionary<string, string>>(paramdata);
-                dictparams.Add("#USERID#",userName);
+                dictparams.Add("#USERID#", userName);
 
                 string value = HttpContext.Session.GetString("sess_nform");
 
-                NformController nc = new NformController(configuration, _logger, _EFClass,dmvc);
-                var model = nc.Cascade("CustDetails",value, ref ErrMsg, dictparams);
+                NformController nc = new NformController(configuration, _logger, _EFClass, dmvc);
+                var model = nc.Cascade("CustDetails", value, ref ErrMsg, dictparams);
                 ViewBag.Nform = model; //TempData["Nform"] = model;
                 if (ErrMsg != "") { _logger.LogError(ErrMsg); return RedirectToAction("Error", new { ErrMsg = "InValid Model Data !!" + this.ErrMsg }); }
 
@@ -179,24 +243,27 @@ namespace MVCDynamicFormsUltra.Controllers
             }
             else
             {
-                NformController nc = new NformController(configuration, _logger, _EFClass,dmvc);
-                var model = nc.LoadControls("CustDetails", ref ErrMsg,userName);
-                
-                if (ModelState.IsValid) {
+                NformController nc = new NformController(configuration, _logger, _EFClass, dmvc);
+                var model = nc.LoadControls("CustDetails", ref ErrMsg, userName);
+
+                if (ModelState.IsValid)
+                {
                     HttpContext.Session.SetString("sess_nform", JsonConvert.SerializeObject(model));
-                    
-                    return View(model); 
-                } else {
+
+                    return View(model);
+                }
+                else
+                {
                     foreach (var key in ModelState.Keys)
                     {
                         var errors = ModelState[key].Errors;
-                        
+
                         foreach (var error in errors)
                         {
                             ErrMsg += key + ": " + error.ErrorMessage;
                         }
                     }
-                    return RedirectToAction("Error", new { ErrMsg = "InValid Data !!" + this.ErrMsg }); 
+                    return RedirectToAction("Error", new { ErrMsg = "InValid Data !!" + this.ErrMsg });
                 }
 
             }
@@ -216,8 +283,8 @@ namespace MVCDynamicFormsUltra.Controllers
                 cascadeparams.Add("#" + key.ToUpper() + "#", data[key]);
             }
 
-            string jsonparams =  JsonConvert.SerializeObject(cascadeparams);
-            return RedirectToAction("DataEntry", new { paramdata = jsonparams } );
+            string jsonparams = JsonConvert.SerializeObject(cascadeparams);
+            return RedirectToAction("DataEntry", new { paramdata = jsonparams });
         }
 
         [HttpPost]
@@ -233,7 +300,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
                     return RedirectToAction("Error");
                 }
-                
+
             }
             else
             {
@@ -242,7 +309,7 @@ namespace MVCDynamicFormsUltra.Controllers
                     if (!GetProfileFromCookie(username))
                     {
                         profilelist = SearchProfile(username);
-                    
+
                         if (profilelist.Count > 0)
                         {
                             HttpContext.Session.SetString("UserName", username);
@@ -252,7 +319,7 @@ namespace MVCDynamicFormsUltra.Controllers
                         }
                         else
                         {
-                            return RedirectToAction("Error",new { ErrMsg = "No User Found" });
+                            return RedirectToAction("Error", new { ErrMsg = "No User Found" });
                         }
                     }
                     else
@@ -264,7 +331,7 @@ namespace MVCDynamicFormsUltra.Controllers
                 }
             }
 
-            
+
             return View(profilelist);
 
         }
@@ -285,9 +352,10 @@ namespace MVCDynamicFormsUltra.Controllers
         {
 
             string user = HttpContext.Request.Cookies["UserName"];
-            if(string.IsNullOrEmpty(user)) { return false; }
-            if(user == username) {
-                
+            if (string.IsNullOrEmpty(user)) { return false; }
+            if (user == username)
+            {
+
 
                 var claims = new List<Claim>
                 {
@@ -306,13 +374,13 @@ namespace MVCDynamicFormsUltra.Controllers
                 };
 
                 // Sign in the user (this sets User.Identity.IsAuthenticated = true)
-                 HttpContext.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(claimsIdentity),
-                    authProperties);
+                HttpContext.SignInAsync(
+                   CookieAuthenticationDefaults.AuthenticationScheme,
+                   new ClaimsPrincipal(claimsIdentity),
+                   authProperties);
 
 
-                return true; 
+                return true;
             }
             return false;
         }
@@ -332,19 +400,20 @@ namespace MVCDynamicFormsUltra.Controllers
 
             try
             {
-                if(API != null)
+                if (API != null)
                 {
                     string[,] sqlparams = null;
-                   
-                    Dictionary<string,string> d = new Dictionary<string,string>();
-                    d.Add("USERNAME", username); d.Add("EMAILID", emailid); 
+
+                    Dictionary<string, string> d = new Dictionary<string, string>();
+                    d.Add("USERNAME", username); d.Add("EMAILID", emailid);
                     string response = "";
-                    response = await API.CallAPI("Customer",false, d, imageBytes);
-                    if (response != null) {
-                        if (response.Contains("Success")) { SetProfileCookie(username); return true; } else {  return false; }
-                        
+                    response = await API.CallAPI("Customer", false, d, imageBytes);
+                    if (response != null)
+                    {
+                        if (response.Contains("Success")) { SetProfileCookie(username); return true; } else { return false; }
+
                     }
-                    return  false;
+                    return false;
                 }
                 else
                 {
@@ -355,7 +424,7 @@ namespace MVCDynamicFormsUltra.Controllers
                     SetProfileCookie(username);
                     return true;
                 }
-                
+
             }
             catch (Exception e)
             {
@@ -388,7 +457,7 @@ namespace MVCDynamicFormsUltra.Controllers
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error(string ErrMsg)
         {
-            if(ErrMsg == null)
+            if (ErrMsg == null)
             {
                 return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
             }
@@ -396,7 +465,7 @@ namespace MVCDynamicFormsUltra.Controllers
             {
                 return View(new ErrorViewModel { RequestId = ErrMsg });
             }
-            
+
         }
 
         public IActionResult ProfileView()

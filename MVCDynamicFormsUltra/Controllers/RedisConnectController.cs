@@ -11,64 +11,99 @@ namespace MVCDynamicFormsUltra.Controllers
         {
             Redis = _redis;
         }
-        public async Task SetPostLikeCount(string userId, string messageId, BigInteger Currlikecount)
+        public async Task<IActionResult> SetPostLikeCount(string Author, string messageId, BigInteger Currlikecount)
         {
-            
+            string? userId = HttpContext.Session.GetString("UserName");
+            if (userId == null)
+            {
+                return RedirectToAction("Error", new { ErrMsg = "OOPS !! Session Expired" });
+
+            }
+
             var db = Redis.GetDatabase();
 
-            string likesKey = $"{messageId}:likecount";     // Set key for users who liked the message
+               
 
             if (Currlikecount > 10000)
             {
-                await db.StreamAddAsync(likesKey,new NameValueEntry[] {
-                    new NameValueEntry("userId",userId),
-                    new NameValueEntry("timestamp",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
-                } );
-
                 SetViralLikePost(userId, messageId, Currlikecount);
             }
             else
             {
-                db.HyperLogLogAddAsync(likesKey, userId);
-
+                AddPostLike(messageId, userId, Currlikecount);
             }
-
-            // use pub sub , see reference fro chat gpt 03/10/2024
+            await Task.Delay(0);
+            // wont add get like count in real time
+            return PartialView();
 
         }
-        public async Task SetViralLikePost(string userId, string messageId, BigInteger Currlikecount)
+
+        internal async Task AddPostLike(string messageId, string userId, BigInteger Currlikecount){
+            var db = Redis.GetDatabase();
+
+            string StreamKey = $"message:{messageId}:likecount";
+            string setkey = $"message:{messageId}:like";
+
+            if(!db.SetContains(setkey, userId)){
+            
+                if (Currlikecount > 10000)
+                {                
+                    await db.HyperLogLogAddAsync(StreamKey, userId);
+                    await db.SetAddAsync(setkey,userId);
+         
+                }
+                else
+                {
+                    await db.StreamAddAsync(StreamKey,new NameValueEntry[] {
+                            new NameValueEntry("userId",userId),
+                            new NameValueEntry("timestamp",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                    } );
+                }
+            }
+            
+        }
+        internal async Task SetViralLikePost(string userId, string messageId, BigInteger Currlikecount)
         {
             
-            string streamkey = messageId + "_Likes";
+            
             string consumergroup = "ViralPostLike";
-            string likesKey = $"{messageId}:likecount";
+            string StreamKey = $"{messageId}:likecount";
             var db = Redis.GetDatabase();
 
             try
             {
-                await db.StreamCreateConsumerGroupAsync(streamkey, consumergroup, "0-0");
+                await db.StreamCreateConsumerGroupAsync(StreamKey, consumergroup, "0-0");
             }
             catch (RedisServerException e) when (e.Message.Contains("BUSY"))
             {
                 Console.WriteLine("Consumer group already exists. Skipping creation.");
             }
+            int Count = 0;
+            while (Count < 5){
 
-            while (true){
-
-                var entries = await db.StreamReadGroupAsync(streamkey,consumergroup,userId,count: 100);
-
+                var entries = await db.StreamReadGroupAsync(StreamKey,consumergroup,userId,count: 100);
+                Count++;
                 if(entries.Length ==0){
                     // No new entries, so we wait before the next attempt to reduce CPU usage
+
+                    if(Count == 1) await AddPostLike(messageId,userId,Currlikecount);
                     await Task.Delay(1000);
+                    
                     continue;
                 }
 
                 foreach(var entry in entries){
-                    string streamuserid = entry["userId"];
-
-                    await db.HyperLogLogAddAsync(likesKey, userId);
-
-                    db.StreamAcknowledgeAsync(streamkey,consumergroup,entry.Id);
+                    if(entry["userId"] == userId){
+                        try{
+                            await AddPostLike(messageId,userId,0);
+                            await db.StreamAcknowledgeAsync(StreamKey,"ViralPostLike",entry.Id);                           
+                            
+                        }
+                        catch(RedisException e){
+                            Console.WriteLine("Failed to store stream data : " + e.Message);
+                        }                        
+                        break;
+                    }                    
                 }
 
             }
