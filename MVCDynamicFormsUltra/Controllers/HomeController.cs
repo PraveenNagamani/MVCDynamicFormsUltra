@@ -24,19 +24,19 @@ namespace MVCDynamicFormsUltra.Controllers
         private readonly string Mongoconnstring = "";
         private readonly string Orclconnstring = "";
         //private readonly IConnectionMultiplexer _Redis;
-        //private readonly RedisManager _Redis ;
+        private readonly RedisManager _Redis ;
         private readonly ILogger _logger;
         DBConnect dmvc;
         private readonly EFClasses _EFClass;
         private readonly LaunchAPI API;
 
         string ErrMsg = "";
-        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI,  DBConnect db)
+        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI,  DBConnect db, RedisManager Redis)
         {
             configuration = config;
             Mongoconnstring = configuration["ConnectionStrings:MongoConnection"];
             Orclconnstring = configuration["ConnectionStrings:OrclConnection"];
-            // _Redis = Redis;
+             _Redis = Redis;
             _logger = logger;
             this._EFClass = _EFClass;
             dmvc = db;
@@ -158,7 +158,7 @@ namespace MVCDynamicFormsUltra.Controllers
                 messageData.TryGetValue("user", out string? tAuthor);
 
                 string likeKey = $"message:{messages[i]}:likecount";
-
+                var t = db.KeyType(likeKey);
 
                 tweets.Add(new Tweet
                 {
