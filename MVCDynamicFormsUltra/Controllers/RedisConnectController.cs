@@ -6,11 +6,11 @@ namespace MVCDynamicFormsUltra.Controllers
 {
     public class RedisConnectController : Controller
     {
-        IConnectionMultiplexer Redis;
-        public RedisConnectController(IConnectionMultiplexer _redis)
-        {
-            Redis = _redis;
-        }
+        //IConnectionMultiplexer Redis;
+        // public RedisConnectController(IConnectionMultiplexer _redis)
+        // {
+        //     Redis = _redis;
+        // }
         public async Task<IActionResult> SetPostLikeCount(string Author, string messageId, BigInteger Currlikecount)
         {
             string? userId = HttpContext.Session.GetString("UserName");
@@ -20,7 +20,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             }
 
-            var db = Redis.GetDatabase();
+            var db = RedisManager.GetDatabase();
 
                
 
@@ -39,7 +39,7 @@ namespace MVCDynamicFormsUltra.Controllers
         }
 
         internal async Task AddPostLike(string messageId, string userId, BigInteger Currlikecount){
-            var db = Redis.GetDatabase();
+            var db = RedisManager.GetDatabase();
 
             string StreamKey = $"message:{messageId}:likecount";
             string setkey = $"message:{messageId}:like";
@@ -68,7 +68,7 @@ namespace MVCDynamicFormsUltra.Controllers
             
             string consumergroup = "ViralPostLike";
             string StreamKey = $"{messageId}:likecount";
-            var db = Redis.GetDatabase();
+            var db = RedisManager.GetDatabase();
 
             try
             {

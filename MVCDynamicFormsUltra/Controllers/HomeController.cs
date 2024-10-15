@@ -23,19 +23,20 @@ namespace MVCDynamicFormsUltra.Controllers
         private readonly IConfiguration configuration;
         private readonly string Mongoconnstring = "";
         private readonly string Orclconnstring = "";
-        private readonly IConnectionMultiplexer _Redis;
+        //private readonly IConnectionMultiplexer _Redis;
+        //private readonly RedisManager _Redis ;
         private readonly ILogger _logger;
         DBConnect dmvc;
         private readonly EFClasses _EFClass;
         private readonly LaunchAPI API;
 
         string ErrMsg = "";
-        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI, IConnectionMultiplexer Redis, DBConnect db)
+        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI,  DBConnect db)
         {
             configuration = config;
             Mongoconnstring = configuration["ConnectionStrings:MongoConnection"];
             Orclconnstring = configuration["ConnectionStrings:OrclConnection"];
-            _Redis = Redis;
+            // _Redis = Redis;
             _logger = logger;
             this._EFClass = _EFClass;
             dmvc = db;
@@ -129,7 +130,7 @@ namespace MVCDynamicFormsUltra.Controllers
                   "Modi", "Dhoni", "US Election", "Work Life Balance", "HYDRAA", "Himanchal Floods", "SRK"
             };
 
-            var db = _Redis.GetDatabase();
+            var db = RedisManager.GetDatabase();
             string query = $"user:{userName}:messages_sorted";
             RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
 
@@ -157,7 +158,7 @@ namespace MVCDynamicFormsUltra.Controllers
                 messageData.TryGetValue("user", out string? tAuthor);
 
                 string likeKey = $"message:{messages[i]}:likecount";
-                
+
 
                 tweets.Add(new Tweet
                 {
@@ -177,7 +178,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             if (data.Keys.Contains("Control"))
             {
-                var db = _Redis.GetDatabase();
+                var db = RedisManager.GetDatabase();
                 //RedirectToAction("SetPostLikeCount", "RedisConnect", new { Author = data["Author"] , messageId = data["messageId"] , Currlikecount = data["Currlikecount"]});
 
 
@@ -188,7 +189,7 @@ namespace MVCDynamicFormsUltra.Controllers
         }
         public IActionResult Redis()
         {
-            var db = _Redis.GetDatabase();
+            var db = RedisManager.GetDatabase();
             string TRID = DateTime.Now.ToString("yyyyMMddHHmmss");
             db.StringSet("RedisTest" + TRID, Guid.NewGuid().ToString());
 

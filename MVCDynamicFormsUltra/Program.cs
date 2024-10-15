@@ -43,7 +43,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 //Adding DbContext and using oracle
 builder.Services.AddDbContext<EFClasses>(OptionsBuilder => OptionsBuilder.UseOracle(builder.Configuration.GetConnectionString("OrclConnection")));
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("RedisConnection"), true)); });
+
+//Redis connection
+//builder.Services.AddSingleton<IConnectionMultiplexer>(sp => { return ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("RedisConnection"), true)); });
+
+//changing to pooling redis connection using lazy loading implemented in class
+builder.Services.AddSingleton<RedisManager>(
+    sp => new RedisManager(builder.Configuration.GetConnectionString("RedisConnection"))
+    );
+
 
 // Add Ilogging
 var logFilePath = builder.Configuration["Logging:FileLogging:LogFilePath"];
