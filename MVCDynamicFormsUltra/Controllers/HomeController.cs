@@ -157,8 +157,8 @@ namespace MVCDynamicFormsUltra.Controllers
                 messageData.TryGetValue("title", out string? tTitle);
                 messageData.TryGetValue("user", out string? tAuthor);
 
-                string likeKey = $"message:{messages[i]}:likecount";
-                var t = db.KeyType(likeKey);
+                string likeKey = $"message:{messages[i]}:approxlikecount";
+                
 
                 tweets.Add(new Tweet
                 {
@@ -182,8 +182,7 @@ namespace MVCDynamicFormsUltra.Controllers
                 //RedirectToAction("SetPostLikeCount", "RedisConnect", new { Author = data["Author"] , messageId = data["messageId"] , Currlikecount = data["Currlikecount"]});
 
 
-                string likesKey = $"{data["MsgId"]}:likecount";
-                BigInteger likecount = db.HyperLogLogLength(likesKey);
+                
             }
             return PartialView();
         }

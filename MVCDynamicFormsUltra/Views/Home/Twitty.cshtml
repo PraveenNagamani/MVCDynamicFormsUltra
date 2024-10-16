@@ -14,6 +14,7 @@
     .btn-oval{
         border-radius : 50%;
     }
+   
 </style>
 <form method="post" id="form_twitty" onsubmit="return false;">
 
@@ -48,12 +49,13 @@
         {
                     <div class="card" id="divmsg_@i">
                 <div class="card-body">
-                    <h5 class="card-title">@Model[i].Title</h5> <small id="msgid_@i">@Model[i].TweetID</small> <small id="author_@i">@Model[i].author</small>
+                    <h5 class="card-title">@Model[i].Title</h5> 
                     @* <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6> *@
                     <p class="card-text">@Model[i].Content</p>
                     @* <a href="#" class="card-link">Card link</a> *@
                     <button class="like-button" id="likeButton_@i">👍</button>
-                    <span id="likeCount_@i">0</span>
+                    <span id="likeCount_@i">@Model[i].LikeCount</span>
+                    <small id="msgid_@i">Tweet ID : @Model[i].TweetID </small> <small id="author_@i">By : @Model[i].author</small>
                 </div>
             </div>
         }
@@ -75,6 +77,9 @@ else
     </div>
 }
 
+
+
+    
 </div>
 
 </form>

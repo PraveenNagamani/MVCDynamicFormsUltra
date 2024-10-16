@@ -43,6 +43,7 @@ namespace MVCDynamicFormsUltra.Controllers
             var db = RedisManager.GetDatabase();
 
             string StreamKey = $"message:{messageId}:likecount";
+            string HyperlogLikeKey = $"message:{messageId}:approxlikecount";
             string setkey = $"message:{messageId}:like";
 
             if (!db.SetContains(setkey, userId))
@@ -50,16 +51,18 @@ namespace MVCDynamicFormsUltra.Controllers
 
                 if (Currlikecount > 10000)
                 {
-                    await db.HyperLogLogAddAsync(StreamKey, userId);
-                    await db.SetAddAsync(setkey, userId);
-
-                }
-                else
-                {
-                    await db.StreamAddAsync(StreamKey, new NameValueEntry[] {
+                    await db.StreamAddAsync(StreamKey, new NameValueEntry[] 
+                    {
                             new NameValueEntry("userId",userId),
                             new NameValueEntry("timestamp",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
                     });
+                    
+                }
+                else
+                {
+                   await db.HyperLogLogAddAsync(HyperlogLikeKey, userId);
+                   await db.SetAddAsync(setkey, userId);
+
                 }
             }
 
