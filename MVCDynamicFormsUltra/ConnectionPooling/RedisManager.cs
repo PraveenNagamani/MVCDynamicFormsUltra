@@ -32,8 +32,13 @@ public class RedisManager
     }
 
     public static IDatabase GetDatabase()
-    {
+    {        
+        
         return _connectionMultiplexer.Value.GetDatabase();
+    }
+
+    public static IServer GetServer(){
+        return _connectionMultiplexer.Value.GetServer(ConfigurationOptions.Parse(_RedisConnection).EndPoints.ToString());
     }
 
     public static void DisposeConnection()

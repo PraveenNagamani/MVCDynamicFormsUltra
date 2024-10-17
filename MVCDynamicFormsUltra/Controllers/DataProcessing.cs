@@ -11,10 +11,12 @@ namespace MVCDynamicFormsUltra.Controllers
     {
         private readonly IConnectionMultiplexer _Redis;
         private readonly ILogger _logger;
-        public DataProcessing(IConnectionMultiplexer Redis, ILogger<DataProcessing> logger)
+        RedisManager _redisManager;
+        public DataProcessing(IConnectionMultiplexer Redis, ILogger<DataProcessing> logger, RedisManager redisManager)
         {
             _Redis = Redis;
             _logger = logger;
+            _redisManager = redisManager;
         }
 
 
@@ -24,7 +26,7 @@ namespace MVCDynamicFormsUltra.Controllers
             tlist.Add("Modi"); tlist.Add("Dhoni"); tlist.Add("US Election"); tlist.Add("Work Life Balance"); tlist.Add("HYDRAA"); tlist.Add("Himanchal Floods");
             tlist.Add("SRK");
 
-            IDatabase db = _Redis.GetDatabase();
+            IDatabase db = RedisManager.GetDatabase();
 
             // 2. Loop to insert 100,000 users
             for (int a = 1; a <= 100000; a++)
@@ -96,8 +98,9 @@ namespace MVCDynamicFormsUltra.Controllers
 
         public async Task setuser()
         {
-            IDatabase db = _Redis.GetDatabase();
-            var server =  _Redis.GetServer("127.0.0.1", 6379);
+            IDatabase db = RedisManager.GetDatabase();
+            //var server = _Redis.GetServer("127.0.0.1", 6379);
+            var server =  RedisManager.GetServer();
 
             IEnumerable<RedisKey> keys = server.Keys( pattern: "message:*");
             List<string> keylist = (keys.Select(key => (string)key)).ToList();
@@ -140,7 +143,8 @@ namespace MVCDynamicFormsUltra.Controllers
 
         public async Task converttosortedsets()
         {
-            var db = _Redis.GetDatabase();
+            
+            var db = RedisManager.GetDatabase();
             string setKey = "user:{userId}:messages";          // Original set key
             string sortedSetKey = "user:{userId}:messages_sorted";  // New sorted set key
 
@@ -154,10 +158,21 @@ namespace MVCDynamicFormsUltra.Controllers
                 double score = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
                 // Add the message to the sorted set with the score
-                db.SortedSetAdd(sortedSetKey, messageId, score);
+                await db.SortedSetAddAsync(sortedSetKey, messageId, score);
             }
+        }
+
+        public async Task RunTrends()
+        {
+            await Task.Delay(0);
+            
+            TrendingTopics trendingTopics = new TrendingTopics(_redisManager);
+            trendingTopics.SetTrendingTopics();
+
         }
 
 
     }
 }
+
+
