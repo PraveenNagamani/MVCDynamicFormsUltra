@@ -1,22 +1,27 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using StackExchange.Redis;
 using System.Collections;
 using System.Collections.Generic;
+//using MVCDynamicFormsUltra.Encryptions.AesEncryptionHelper;
 using System.Text;
 
 namespace MVCDynamicFormsUltra.Controllers
 {
     public class DataProcessing : Controller
     {
-        private readonly IConnectionMultiplexer _Redis;
+        //private readonly IConnectionMultiplexer _Redis;
         private readonly ILogger _logger;
         RedisManager _redisManager;
-        public DataProcessing(IConnectionMultiplexer Redis, ILogger<DataProcessing> logger, RedisManager redisManager)
+        private readonly RedisConnectController r;
+        private readonly PasswordHasher<string> passwordHasher = new PasswordHasher<string>();
+        public DataProcessing( ILogger<DataProcessing> logger, RedisManager redisManager, RedisConnectController r)
         {
-            _Redis = Redis;
+            //_Redis = Redis; // removed from paramter IConnectionMultiplexer Redis,
             _logger = logger;
             _redisManager = redisManager;
+            this.r = r;
         }
 
 
@@ -162,14 +167,9 @@ namespace MVCDynamicFormsUltra.Controllers
             }
         }
 
-        public async Task RunTrends()
-        {
-            await Task.Delay(0);
-            
-            TrendingTopics trendingTopics = new TrendingTopics(_redisManager);
-            trendingTopics.SetTrendingTopics();
+        
 
-        }
+        
 
 
     }

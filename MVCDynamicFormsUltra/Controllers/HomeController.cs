@@ -15,28 +15,30 @@ using System.Net;
 using System.Security.Claims;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using System.Numerics;
+using Microsoft.AspNetCore.Identity;
 
 namespace MVCDynamicFormsUltra.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly PasswordHasher<string> passwordHasher = new PasswordHasher<string>();
         private readonly IConfiguration configuration;
         private readonly string Mongoconnstring = "";
         private readonly string Orclconnstring = "";
         //private readonly IConnectionMultiplexer _Redis;
-        private readonly RedisManager _Redis ;
+        private readonly RedisManager _Redis;
         private readonly ILogger _logger;
         DBConnect dmvc;
         private readonly EFClasses _EFClass;
         private readonly LaunchAPI API;
 
         string ErrMsg = "";
-        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI,  DBConnect db, RedisManager Redis)
+        public HomeController(IConfiguration config, ILogger<HomeController> logger, EFClasses _EFClass, LaunchAPI launchAPI, DBConnect db, RedisManager Redis)
         {
             configuration = config;
             Mongoconnstring = configuration["ConnectionStrings:MongoConnection"];
             Orclconnstring = configuration["ConnectionStrings:OrclConnection"];
-             _Redis = Redis;
+            _Redis = Redis;
             _logger = logger;
             this._EFClass = _EFClass;
             dmvc = db;
@@ -158,7 +160,7 @@ namespace MVCDynamicFormsUltra.Controllers
                 messageData.TryGetValue("user", out string? tAuthor);
 
                 string likeKey = $"message:{messages[i]}:approxlikecount";
-                
+
 
                 tweets.Add(new Tweet
                 {
@@ -182,7 +184,7 @@ namespace MVCDynamicFormsUltra.Controllers
                 //RedirectToAction("SetPostLikeCount", "RedisConnect", new { Author = data["Author"] , messageId = data["messageId"] , Currlikecount = data["Currlikecount"]});
 
 
-                
+
             }
             return PartialView();
         }
@@ -288,13 +290,13 @@ namespace MVCDynamicFormsUltra.Controllers
         }
 
         [HttpPost]
-        public IActionResult ProfileView(string buttonid, string username, string emailid)
+        public IActionResult ProfileView(string buttonid, string username, string emailid, string password)
         {
             List<Profile> profilelist = new List<Profile>();
 
             if (buttonid == "btnsave")
             {
-                CreateProfile(username, emailid);
+                CreateProfile(username, emailid, password);
                 if (ErrMsg != string.Empty)
                 {
 
@@ -306,21 +308,29 @@ namespace MVCDynamicFormsUltra.Controllers
             {
                 if (buttonid == "btnlogin" || buttonid == "btnsave")
                 {
+
                     if (!GetProfileFromCookie(username))
                     {
-                        profilelist = SearchProfile(username);
+                        var db = RedisManager.GetDatabase();
+                        string? hashedpassword = db.HashGet($"hashpass{username}", "password");
+                        PasswordVerificationResult result = passwordHasher.VerifyHashedPassword(username, hashedpassword, password);
+                        if (result == PasswordVerificationResult.Success)
+                        {
+                            profilelist = SearchProfile(username);
 
-                        if (profilelist.Count > 0)
-                        {
-                            HttpContext.Session.SetString("UserName", username);
-                            SetProfileCookie(username);
-                            //return RedirectToAction("DataEntry");
-                            return RedirectToAction("Twitty");
+                            if (profilelist.Count > 0)
+                            {
+                                HttpContext.Session.SetString("UserName", username);
+                                SetProfileCookie(username);
+                                //return RedirectToAction("DataEntry");
+                                return RedirectToAction("Twitty");
+                            }
+                            else
+                            {
+                                return RedirectToAction("Error", new { ErrMsg = "No User Found" });
+                            }
                         }
-                        else
-                        {
-                            return RedirectToAction("Error", new { ErrMsg = "No User Found" });
-                        }
+
                     }
                     else
                     {
@@ -385,8 +395,17 @@ namespace MVCDynamicFormsUltra.Controllers
             return false;
         }
 
-        public async Task<bool> CreateProfile(string username, string emailid)
+        public async Task<bool> CreateProfile(string username, string emailid, string password)
         {
+
+            string hashedpassword = passwordHasher.HashPassword(username, password);
+
+            // cannot receive original password from hashed password. only can be verified
+            var db = RedisManager.GetDatabase();
+            await db.HashSetAsync($"hashpass{username}", new HashEntry[] {
+                new HashEntry("password",hashedpassword)
+            });
+
             IFormFile image = Request.Form.Files["Photo"];
             byte[] imageBytes = null;
             if (image != null)

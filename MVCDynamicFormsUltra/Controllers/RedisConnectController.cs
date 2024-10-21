@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Microsoft.AspNetCore.Mvc;
+using MVCDynamicFormsUltra.Models;
 using StackExchange.Redis;
 
 namespace MVCDynamicFormsUltra.Controllers
@@ -7,9 +8,13 @@ namespace MVCDynamicFormsUltra.Controllers
     public class RedisConnectController : Controller
     {
         RedisManager Redis;
-        public RedisConnectController(RedisManager _redis)
+        IDatabase db;
+        private readonly ILogger _logger;
+        public RedisConnectController(RedisManager _redis,ILogger<RedisConnectController> logger)
         {
             Redis = _redis;
+            db = RedisManager.GetDatabase();
+            _logger = logger;
         }
         public async Task<IActionResult> SetPostLikeCount(string Author, string messageId, BigInteger Currlikecount)
         {
@@ -20,7 +25,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             }
 
-            var db = RedisManager.GetDatabase();
+            //var db = RedisManager.GetDatabase();
 
 
 
@@ -40,7 +45,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
         internal async Task AddPostLike(string messageId, string userId, BigInteger Currlikecount)
         {
-            var db = RedisManager.GetDatabase();
+            //var db = RedisManager.GetDatabase();
 
             string StreamKey = $"message:{messageId}:likecount";
             string HyperlogLikeKey = $"message:{messageId}:approxlikecount";
@@ -51,17 +56,17 @@ namespace MVCDynamicFormsUltra.Controllers
 
                 if (Currlikecount > 10000)
                 {
-                    await db.StreamAddAsync(StreamKey, new NameValueEntry[] 
+                    await db.StreamAddAsync(StreamKey, new NameValueEntry[]
                     {
                             new NameValueEntry("userId",userId),
                             new NameValueEntry("timestamp",DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
                     });
-                    
+
                 }
                 else
                 {
-                   await db.HyperLogLogAddAsync(HyperlogLikeKey, userId);
-                   await db.SetAddAsync(setkey, userId);
+                    await db.HyperLogLogAddAsync(HyperlogLikeKey, userId);
+                    await db.SetAddAsync(setkey, userId);
 
                 }
             }
@@ -73,7 +78,7 @@ namespace MVCDynamicFormsUltra.Controllers
 
             string consumergroup = "ViralPostLike";
             string StreamKey = $"{messageId}:likecount";
-            var db = RedisManager.GetDatabase();
+            //var db = RedisManager.GetDatabase();
 
             try
             {
@@ -81,6 +86,7 @@ namespace MVCDynamicFormsUltra.Controllers
             }
             catch (RedisServerException e) when (e.Message.Contains("BUSY"))
             {
+                _logger.LogCritical("Consumer group already exists. Skipping creation.");
                 Console.WriteLine("Consumer group already exists. Skipping creation.");
             }
             int Count = 0;
@@ -120,5 +126,114 @@ namespace MVCDynamicFormsUltra.Controllers
             }
 
         }
+
+        public async Task CreateUser(List<Users> users)
+        {
+
+
+            var Tasks = new List<Task>();
+            foreach (var user in users)
+            {
+                Tasks.Add(CheckandAddUser(user.userId, user.UserName, user.Email));
+            }
+
+            await Task.WhenAll(Tasks);
+
+        }
+
+        public async Task CheckandAddUser(string userId, string username, string email)
+        {
+
+            bool isexists = await db.HashExistsAsync($"user:{userId}", username);
+            if (isexists)
+            {
+                await db.HashSetAsync($"user:{userId}", new HashEntry[]
+                {
+                new HashEntry("username", username),
+                new HashEntry("email", email)
+                });
+            }
+
+        }
+
+        public async Task SaveTrends(List<Tweet> TrendingPosts)
+        {
+            //var transaction = db.CreateTransaction();
+
+            var Tasks = new List<Task>();
+            foreach (var post in TrendingPosts)
+            {
+                Tasks.Add(AddPost(post.author, post.Title, post.Content, post.LikeCount));
+                db.SortedSetAddAsync("Trending:Topics",post.Title,(double) post.LikeCount);
+            }
+
+            await Task.WhenAll(Tasks);
+
+        }
+        public async Task AddPost(string userId, string title, string Content, BigInteger likecount)
+        {
+
+
+            Guid guid = Guid.NewGuid();
+            string MessageId = $"MessageId{guid.ToString()}{userId}";
+            string userMessagesKey = $"user:{userId}:messages_sorted";
+
+            long? msgrank; double score;
+            if (likecount.Equals(System.Numerics.BigInteger.Zero))
+            {
+                string datetime = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+                DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(datetime);
+                score = dateTimeOffset.ToUnixTimeSeconds();
+
+                msgrank = await db.SortedSetRankAsync(userMessagesKey, MessageId);
+
+
+                // also add trends sorted set
+
+                if (msgrank == null)
+                {
+                    await db.HashSetAsync($"message:{MessageId}", new HashEntry[]
+                    {
+                        new HashEntry("user", userId),
+                        new HashEntry("Content",Content),
+                        new HashEntry("title", title.Replace("#",string.Empty)),
+                        new HashEntry("likecount",likecount.ToString())
+                    });
+                    await db.SortedSetAddAsync(userMessagesKey, MessageId, score);
+                }
+            }
+            else
+            {
+                msgrank = await db.SortedSetRankAsync(userMessagesKey, MessageId);
+
+
+                // also add trends sorted set
+
+                if (msgrank == null)
+                {
+                    await db.HashSetAsync($"message:{MessageId}", new HashEntry[]
+                    {
+                        new HashEntry("user", userId),
+                        new HashEntry("Content",Content),
+                        new HashEntry("title", title.Replace("#",string.Empty)),
+                        new HashEntry("likecount",likecount.ToString())
+                    });
+                    await db.SortedSetAddAsync(userMessagesKey, MessageId, (double) likecount);
+                }
+            }
+
+
+        }
+
+        
+    }
+
+    public class Users
+    {
+        public required string userId { get; set; }
+        public required string UserName { get; set; }
+        public string? Email { get; set; }
+
+
     }
 }
