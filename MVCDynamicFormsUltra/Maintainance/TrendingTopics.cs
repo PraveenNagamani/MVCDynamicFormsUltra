@@ -116,15 +116,37 @@ public class TrendingTopics : BackgroundService
             {
                 string topic = entry.Element;
                 double newScore = entry.Score * decayFactor;
-                await db.SortedSetAddAsync("trending:topics", topic, newScore);
+                await db.SortedSetAddAsync("Trending:Topics", topic, newScore);
             }
             _logger.LogInformation("Decay factor applied successfully to trending topics.");
             Console.WriteLine("Decay factor applied successfully to trending topics.");
         }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        throw new NotImplementedException();
+        while(!stoppingToken.IsCancellationRequested){
+            long CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long OneHourinSec = 3600;
+
+            var lastupdatedvalue = await db.StringGetAsync("Trending:LastUpdated");
+
+            if(!lastupdatedvalue.IsNullOrEmpty){
+                long lastupdatedtime = (long) lastupdatedvalue;
+
+                if(CurrentTime - lastupdatedtime < OneHourinSec)
+                {
+                    long remainingTime = OneHourinSec -(CurrentTime - lastupdatedtime);
+                    await Task.Delay(TimeSpan.FromSeconds(remainingTime) );
+                }
+            }
+            
+            await ApplyDecayFactorAsync(0.9);
+
+            await SetTrendingTopics();
+            await db.StringSetAsync("Trending:LastUpdated",CurrentTime);
+            
+            await Task.Delay(TimeSpan.FromHours(1),stoppingToken);
+        }
     }
 }
 

@@ -10,7 +10,7 @@ namespace MVCDynamicFormsUltra.Controllers
         RedisManager Redis;
         IDatabase db;
         private readonly ILogger _logger;
-        public RedisConnectController(RedisManager _redis,ILogger<RedisConnectController> logger)
+        public RedisConnectController(RedisManager _redis, ILogger<RedisConnectController> logger)
         {
             Redis = _redis;
             db = RedisManager.GetDatabase();
@@ -164,11 +164,21 @@ namespace MVCDynamicFormsUltra.Controllers
             foreach (var post in TrendingPosts)
             {
                 Tasks.Add(AddPost(post.author, post.Title, post.Content, post.LikeCount));
-                db.SortedSetAddAsync("Trending:Topics",post.Title,(double) post.LikeCount);
+                Tasks.Add(AddPostToTrend(post, "Trending:Topics"));
             }
 
             await Task.WhenAll(Tasks);
 
+        }
+
+        private async Task AddPostToTrend(Tweet post, string TrendKey)
+        {
+            long? msgrank = await db.SortedSetRankAsync(TrendKey, post.Title);
+            if (msgrank == null)
+            {
+
+                await db.SortedSetAddAsync(TrendKey, post.Title, (double)post.LikeCount);
+            }
         }
         public async Task AddPost(string userId, string title, string Content, BigInteger likecount)
         {
@@ -218,14 +228,14 @@ namespace MVCDynamicFormsUltra.Controllers
                         new HashEntry("title", title.Replace("#",string.Empty)),
                         new HashEntry("likecount",likecount.ToString())
                     });
-                    await db.SortedSetAddAsync(userMessagesKey, MessageId, (double) likecount);
+                    await db.SortedSetAddAsync(userMessagesKey, MessageId, (double)likecount);
                 }
             }
 
 
         }
 
-        
+
     }
 
     public class Users

@@ -61,6 +61,9 @@ builder.Logging.AddProvider(new FileLoggerProvider(logFileDirectory + "\\" + log
 
 builder.Services.AddTransient<DBConnect>();
 
+builder.Services.AddTransient<RedisConnectController>();
+builder.Services.AddHostedService<TrendingTopics>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

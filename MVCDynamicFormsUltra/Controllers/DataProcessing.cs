@@ -15,13 +15,15 @@ namespace MVCDynamicFormsUltra.Controllers
         private readonly ILogger _logger;
         RedisManager _redisManager;
         private readonly RedisConnectController r;
+        private readonly TrendingTopics trending;
         private readonly PasswordHasher<string> passwordHasher = new PasswordHasher<string>();
-        public DataProcessing( ILogger<DataProcessing> logger, RedisManager redisManager, RedisConnectController r)
+        public DataProcessing( ILogger<DataProcessing> logger, RedisManager redisManager, RedisConnectController r,TrendingTopics trending)
         {
             //_Redis = Redis; // removed from paramter IConnectionMultiplexer Redis,
             _logger = logger;
             _redisManager = redisManager;
             this.r = r;
+            this.trending = trending;
         }
 
 
@@ -168,7 +170,6 @@ namespace MVCDynamicFormsUltra.Controllers
         }
 
         
-
         
 
 

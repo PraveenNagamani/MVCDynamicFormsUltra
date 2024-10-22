@@ -127,12 +127,21 @@ namespace MVCDynamicFormsUltra.Controllers
             }
 
             if (userName == "praveen") { userName = "userid1"; }
-
-            ViewBag.Trends = new List<string>{
-                  "Modi", "Dhoni", "US Election", "Work Life Balance", "HYDRAA", "Himanchal Floods", "SRK"
-            };
-
             var db = RedisManager.GetDatabase();
+
+            var trendingTopics = db.SortedSetRangeByRankWithScores("Trending:Topics", 0, -1);
+
+            List<string> Trends = new List<string>();
+            if (trendingTopics != null)
+            {
+                foreach (var entry in trendingTopics)
+                {
+                    Trends.Add(entry.Element);
+                }
+                ViewBag.Trends = Trends;
+            }
+
+
             string query = $"user:{userName}:messages_sorted";
             RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
 
