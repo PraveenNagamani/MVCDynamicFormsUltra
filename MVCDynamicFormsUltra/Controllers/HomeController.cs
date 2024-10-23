@@ -141,6 +141,8 @@ namespace MVCDynamicFormsUltra.Controllers
                 ViewBag.Trends = Trends;
             }
 
+            // get latest 2 messages by score for top 3 topics. on lazy loading remaining topics messages will be retrieved.
+            
 
             string query = $"user:{userName}:messages_sorted";
             RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);

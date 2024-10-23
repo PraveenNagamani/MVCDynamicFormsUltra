@@ -77,6 +77,8 @@ namespace MVCDynamicFormsUltra.Controllers
                     new HashEntry("likecount",0)
                      });
 
+                    await db.SetAddAsync($"Topic:{tagid}", MessageId);
+
                     string userMessagesKey = $"user:{userId}:messages_sorted";
                     string datetime;
                     if (i % 2 == 0)

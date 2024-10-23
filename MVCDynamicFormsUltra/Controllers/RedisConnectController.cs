@@ -182,56 +182,31 @@ namespace MVCDynamicFormsUltra.Controllers
         }
         public async Task AddPost(string userId, string title, string Content, BigInteger likecount)
         {
-
-
             Guid guid = Guid.NewGuid();
             string MessageId = $"MessageId{guid.ToString()}{userId}";
             string userMessagesKey = $"user:{userId}:messages_sorted";
 
             long? msgrank; double score;
-            if (likecount.Equals(System.Numerics.BigInteger.Zero))
+
+            string datetime = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+            DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(datetime);
+            score = dateTimeOffset.ToUnixTimeSeconds();
+
+            msgrank = await db.SortedSetRankAsync(userMessagesKey, MessageId);
+
+            if (msgrank == null)
             {
-                string datetime = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
-                DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(datetime);
-                score = dateTimeOffset.ToUnixTimeSeconds();
-
-                msgrank = await db.SortedSetRankAsync(userMessagesKey, MessageId);
-
-
-                // also add trends sorted set
-
-                if (msgrank == null)
+                await db.HashSetAsync($"message:{MessageId}", new HashEntry[]
                 {
-                    await db.HashSetAsync($"message:{MessageId}", new HashEntry[]
-                    {
                         new HashEntry("user", userId),
                         new HashEntry("Content",Content),
                         new HashEntry("title", title.Replace("#",string.Empty)),
                         new HashEntry("likecount",likecount.ToString())
-                    });
-                    await db.SortedSetAddAsync(userMessagesKey, MessageId, score);
-                }
+                });
+                db.SetAddAsync($"Topic:{title}", MessageId);
+                db.SortedSetAddAsync(userMessagesKey, MessageId, score);
+                SetPostLikeCount(userId, MessageId, likecount);
             }
-            else
-            {
-                msgrank = await db.SortedSetRankAsync(userMessagesKey, MessageId);
-
-
-                // also add trends sorted set
-
-                if (msgrank == null)
-                {
-                    await db.HashSetAsync($"message:{MessageId}", new HashEntry[]
-                    {
-                        new HashEntry("user", userId),
-                        new HashEntry("Content",Content),
-                        new HashEntry("title", title.Replace("#",string.Empty)),
-                        new HashEntry("likecount",likecount.ToString())
-                    });
-                    await db.SortedSetAddAsync(userMessagesKey, MessageId, (double)likecount);
-                }
-            }
-
 
         }
 
