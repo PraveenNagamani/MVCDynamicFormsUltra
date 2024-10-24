@@ -16,6 +16,13 @@ namespace MVCDynamicFormsUltra.Controllers
             db = RedisManager.GetDatabase();
             _logger = logger;
         }
+
+        public async Task<ActionResult> GetFeed()
+        {
+
+            return View();
+        }
+
         public async Task<IActionResult> SetPostLikeCount(string Author, string messageId, BigInteger Currlikecount)
         {
             string? userId = HttpContext.Session.GetString("UserName");
@@ -191,7 +198,7 @@ namespace MVCDynamicFormsUltra.Controllers
             string datetime = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
             DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(datetime);
             score = dateTimeOffset.ToUnixTimeSeconds();
-
+            double scorelikecount = (double) likecount;
             msgrank = await db.SortedSetRankAsync(userMessagesKey, MessageId);
 
             if (msgrank == null)
@@ -203,7 +210,7 @@ namespace MVCDynamicFormsUltra.Controllers
                         new HashEntry("title", title.Replace("#",string.Empty)),
                         new HashEntry("likecount",likecount.ToString())
                 });
-                db.SetAddAsync($"Topic:{title}", MessageId);
+                db.SortedSetAddAsync($"Topic:{title}", MessageId,scorelikecount);
                 db.SortedSetAddAsync(userMessagesKey, MessageId, score);
                 SetPostLikeCount(userId, MessageId, likecount);
             }

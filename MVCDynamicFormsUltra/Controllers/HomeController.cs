@@ -129,39 +129,35 @@ namespace MVCDynamicFormsUltra.Controllers
             if (userName == "praveen") { userName = "userid1"; }
             var db = RedisManager.GetDatabase();
 
-            var trendingTopics = db.SortedSetRangeByRankWithScores("Trending:Topics", 0, -1);
-
+            var trendingTopics = db.SortedSetRangeByRankWithScores("Trending:Topics", 0, 2,Order.Descending);
+            
             List<string> Trends = new List<string>();
             if (trendingTopics != null)
             {
-                foreach (var entry in trendingTopics)
+                List<Task<StackExchange.Redis.SortedSetEntry[]>> TrendDetailsTask = new List<Task<StackExchange.Redis.SortedSetEntry[]>>();
+                foreach(var entry in trendingTopics)
                 {
                     Trends.Add(entry.Element);
+                    TrendDetailsTask.Add(db.SortedSetRangeByRankWithScoresAsync($"Topic:{entry.Element}",0,1,Order.Descending));
                 }
+
+                Task.WaitAll(TrendDetailsTask.ToArray());
                 ViewBag.Trends = Trends;
-            }
 
-            // get latest 2 messages by score for top 3 topics. on lazy loading remaining topics messages will be retrieved.
+                //Dictionary<string,List<>)
+                for(int i=0; i<= TrendDetailsTask.Count;i++ ){
+                    var messageiddetails = TrendDetailsTask[i].Result;
+                    List<Task<HashEntry[]>> hashMsgTasks = new List<Task<HashEntry[]>>();
+                    foreach(var entry in messageiddetails){
+                        //var messageid = entry.Element;
+                        hashMsgTasks.Add(db.HashGetAllAsync($"message:{entry.Element}"));
+                    }
+                    Task.WaitAll(hashMsgTasks.ToArray());
+
+                    List<Tweet> tweets = new List<Tweet>();
+
             
-
-            string query = $"user:{userName}:messages_sorted";
-            RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
-
-            //Batch Retrieval: We used HashGetAllAsync in a batch operation to reduce the latency caused by multiple round trips to Redis. This will significantly improve performance when fetching multiple messages.
-            List<Task<HashEntry[]>> hashTasks = new List<Task<HashEntry[]>>();
-            foreach (var msg in messages)
-            {
-                hashTasks.Add(db.HashGetAllAsync($"message:{msg}"));
-            }
-
-            Task.WaitAll(hashTasks.ToArray());
-            //batch retieval completed
-
-            List<Tweet> tweets = new List<Tweet>();
-
-            for (int i = 0; i < messages.Length; i++)
-            {
-                var messageData = hashTasks[i].Result.ToDictionary(
+                var messageData = hashMsgTasks[i].Result.ToDictionary(
                     entry => (string?)entry.Name,
                     entry => (string?)entry.Value
                 );
@@ -170,18 +166,64 @@ namespace MVCDynamicFormsUltra.Controllers
                 messageData.TryGetValue("title", out string? tTitle);
                 messageData.TryGetValue("user", out string? tAuthor);
 
-                string likeKey = $"message:{messages[i]}:approxlikecount";
+                string likeKey = $"message:{TrendDetailsTask[i].Result}:approxlikecount";
 
 
                 tweets.Add(new Tweet
                 {
-                    TweetID = messages[i].ToString(),
+                    TweetID = TrendDetailsTask[i].Result.ToString(),
                     Content = tContent,
                     Title = tTitle,
                     author = tAuthor,
                     LikeCount = db.HyperLogLogLength(likeKey) // Get like count
                 });
+            
+                }
+
+
             }
+
+            // get latest 2 messages by score for top 3 topics. on lazy loading remaining topics messages will be retrieved.
+            
+
+            // string query = $"user:{userName}:messages_sorted";
+            // RedisValue[] messages = db.SortedSetRangeByScore(query, order: Order.Descending);
+
+            // //Batch Retrieval: We used HashGetAllAsync in a batch operation to reduce the latency caused by multiple round trips to Redis. This will significantly improve performance when fetching multiple messages.
+            // List<Task<HashEntry[]>> hashTasks = new List<Task<HashEntry[]>>();
+            // foreach (var msg in messages)
+            // {
+            //     hashTasks.Add(db.HashGetAllAsync($"message:{msg}"));
+            // }
+
+            // Task.WaitAll(hashTasks.ToArray());
+            //batch retieval completed
+
+            // List<Tweet> tweets = new List<Tweet>();
+
+            // for (int i = 0; i < messages.Length; i++)
+            // {
+            //     var messageData = hashTasks[i].Result.ToDictionary(
+            //         entry => (string?)entry.Name,
+            //         entry => (string?)entry.Value
+            //     );
+
+            //     messageData.TryGetValue("Content", out string? tContent);
+            //     messageData.TryGetValue("title", out string? tTitle);
+            //     messageData.TryGetValue("user", out string? tAuthor);
+
+            //     string likeKey = $"message:{messages[i]}:approxlikecount";
+
+
+            //     tweets.Add(new Tweet
+            //     {
+            //         TweetID = messages[i].ToString(),
+            //         Content = tContent,
+            //         Title = tTitle,
+            //         author = tAuthor,
+            //         LikeCount = db.HyperLogLogLength(likeKey) // Get like count
+            //     });
+            // }
             return View(tweets);
         }
 
