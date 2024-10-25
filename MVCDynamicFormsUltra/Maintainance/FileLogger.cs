@@ -55,11 +55,16 @@ namespace MVCDynamicFormsUltra.Maintainance
 
             string fullFilePath = _filePath.Replace("{date}", DateTimeOffset.UtcNow.ToString("yyyyMMdd"));
             string logRecord = string.Format("{0} {1} [{2}] {3} {4}", "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "]", _loggerName, logLevel.ToString(), formatter(state, exception), exception != null ? exception.StackTrace : "");
-
-            using (var streamWriter = new StreamWriter(fullFilePath, true))
+            try{
+                using (var streamWriter = new StreamWriter(fullFilePath, true))
             {
                 streamWriter.WriteLine(logRecord);
             }
+            }
+            catch(Exception ex){
+                Console.WriteLine("Logging Status Fail : " + ex.Message);
+            }
+            
         }
     }
 }

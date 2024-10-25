@@ -29,7 +29,7 @@
         <div class="col-7">
                 @if (trends != null)
                 {
-                    @for (int i = 0; i < 5; i++)
+                    @for (int i = 0; i < trends.Count; i++)
                     {
                         <button type="button" class="btn btn-outline-info p-2 m-2">@trends[i]</button>
                     }
@@ -113,12 +113,23 @@ else
 
         });
 
+        let startrank = 5;
+        let loading = false;
+
+        window.onscroll(
+            function(){
+                if((window.innerHeight + window.scrollY) >= document.body.offsetHeight  && !loading){
+                    loading = true;
+                    loadmoretweets(startrank);
+                }
+            }
+        );
    
 
     });
 
     function autopostback(control) {
-        console.log('inside');
+        //console.log('inside');
         const index = control.split('_')[1];
         var title = $('#divmsg_' + index).find('.card-title').text();
         var content = $('#divmsg_' + index).find('.card-text').text();
@@ -152,4 +163,23 @@ else
         });
     }
 
+    function loadmoretweets(startrank){ 
+        var tweetloadindex = { startrank : startrank, Count : 5}; 
+
+        $.ajax({
+             url: '@Url.Action("LoadMoreTweets", "Home")',
+            type: 'POST',
+            data: tweetloadindex,
+            success: function (response) {
+                $('div_twitty').insertAdjacentHTML('beforeend',response);
+                
+                
+                
+            },
+            error: function (xhr, status, error) {
+                console.error("Error during load tweets:", status, error);
+                console.error("Response:", xhr.responseText);
+            }
+        });
+    }
 </script>
